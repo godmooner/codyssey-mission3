@@ -1,5 +1,7 @@
 # Mini NPU 시뮬레이터 (Codyssey 미션 E1-3)
 
+EPSILON = 1e-9  # 두 점수의 차이가 이보다 작으면 "같다"로 본다
+
 
 def read_matrix(name, n):
     """n x n 행렬을 한 줄씩 입력받아 2차원 list로 돌려준다."""
@@ -52,6 +54,17 @@ def mac(pattern, filter_matrix):
     return total
 
 
+def judge(score_a, score_b):
+    """두 점수 중 큰 쪽을 판정한다. 차이가 EPSILON보다 작으면 UNDECIDED."""
+    # 동점 검사를 가장 먼저: 부동소수점 오차 수준의 차이는 같은 점수로 본다
+    if abs(score_a - score_b) < EPSILON:
+        return "UNDECIDED"
+    elif score_a > score_b:
+        return "A"
+    else:
+        return "B"
+
+
 def run_mode1():
     """모드 1: 필터 A·B 입력 → 저장 확인 → 패턴 입력"""
     n = 3
@@ -73,6 +86,7 @@ def run_mode1():
     score_b = mac(pattern, filter_b)
     print(f"\n필터 A 점수: {score_a}")
     print(f"필터 B 점수: {score_b}")
+    print(f"판정: {judge(score_a, score_b)}")
 
 
 def run_mode2():
