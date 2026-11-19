@@ -1,5 +1,7 @@
 # Mini NPU 시뮬레이터 (Codyssey 미션 E1-3)
 
+import math
+
 EPSILON = 1e-9  # 두 점수의 차이가 이보다 작으면 "같다"로 본다
 
 
@@ -23,6 +25,15 @@ def read_matrix(name, n):
                 row.append(float(part))
         except ValueError:
             print("  숫자가 아닌 값이 있습니다. 이 행을 다시 입력하세요.")
+            continue
+
+        # 예외 ③: nan, inf는 float()를 통과하지만 계산에 쓸 수 없음
+        has_invalid = False
+        for value in row:
+            if not math.isfinite(value):
+                has_invalid = True
+        if has_invalid:
+            print("  nan, inf는 사용할 수 없습니다. 이 행을 다시 입력하세요.")
             continue
 
         matrix.append(row)
@@ -96,7 +107,7 @@ def run_mode2():
 
 # 이 파일을 직접 실행했을 때의 시작점
 if __name__ == "__main__":
-    # 예외 ③: Ctrl+C(KeyboardInterrupt), 입력 끝(EOFError) → 안내 후 종료
+    # 예외 ④: Ctrl+C(KeyboardInterrupt), 입력 끝(EOFError) → 안내 후 종료
     try:
         mode = read_mode()
         if mode == "1":
