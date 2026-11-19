@@ -7,11 +7,17 @@ def read_matrix(name, n):
     matrix = []
     while len(matrix) < n:  # n줄이 다 찰 때까지 반복
         text = input(f"  {len(matrix) + 1}행: ")
-        row = []
+        parts = text.split()
 
+        # 예외 ②: 숫자 개수가 n개가 아님 (빈 줄이면 0개)
+        if len(parts) != n:
+            print(f"  숫자 {n}개가 필요한데 {len(parts)}개가 입력되었습니다. 이 행을 다시 입력하세요.")
+            continue
+
+        row = []
         # 예외 ①: 숫자로 바꿀 수 없는 값 (예: abc)
         try:
-            for part in text.split():
+            for part in parts:
                 row.append(float(part))
         except ValueError:
             print("  숫자가 아닌 값이 있습니다. 이 행을 다시 입력하세요.")
