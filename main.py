@@ -42,6 +42,16 @@ def read_mode():
         print("잘못된 입력입니다. 1 또는 2를 입력하세요.")
 
 
+def mac(pattern, filter_matrix):
+    """같은 위치의 값끼리 곱해서 전부 더한 값(MAC 점수)을 돌려준다."""
+    n = len(pattern)
+    total = 0.0
+    for i in range(n):          # 행
+        for j in range(n):      # 열
+            total += pattern[i][j] * filter_matrix[i][j]
+    return total
+
+
 def run_mode1():
     """모드 1: 필터 A·B 입력 → 저장 확인 → 패턴 입력"""
     n = 3
@@ -57,6 +67,12 @@ def run_mode1():
     pattern = read_matrix("패턴", n)
     print("\n패턴 저장 완료")
     print_matrix(pattern)
+
+    # MAC 점수 계산
+    score_a = mac(pattern, filter_a)
+    score_b = mac(pattern, filter_b)
+    print(f"\n필터 A 점수: {score_a}")
+    print(f"필터 B 점수: {score_b}")
 
 
 def run_mode2():
