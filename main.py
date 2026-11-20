@@ -116,9 +116,19 @@ def load_data(path):
         return None
 
 
+def is_square_matrix(matrix, n):
+    """matrix가 n x n 모양(길이 n인 list가 n개)이면 True."""
+    if not isinstance(matrix, list) or len(matrix) != n:
+        return False
+    for row in matrix:
+        if not isinstance(row, list) or len(row) != n:
+            return False
+    return True
+
+
 def normalize_label(label):
     """'+', 'cross' → 'Cross' / 'x' → 'X'. 규칙에 없는 라벨이면 None."""
-    return LABEL_MAP.get(label.strip().lower())
+    return LABEL_MAP.get(str(label).strip().lower())
 
 
 def run_mode2():
@@ -128,14 +138,58 @@ def run_mode2():
     if data is None:
         return
 
-    for case_id, case in data["patterns"].items():
-        n = int(case_id.split("_")[1])          # "size_13_2" → ["size", "13", "2"] → 13
-        filters = data["filters"][f"size_{n}"]  # {"cross": 행렬, "x": 행렬}
-        pattern = case["input"]
+    passed = 0
+    failures = []  # 실패한 케이스의 "이름: 사유" 문자열 모음
 
-        score_cross = mac(pattern, filters["cross"])
-        score_x = mac(pattern, filters["x"])
-        result = judge(score_cross, score_x)    # A = cross 쪽, B = x 쪽
+    for case_id, case in data["patterns"].items():
+        # 예외 ⑤: 키 형식 오류 (예: "abc" → [1] 칸 없음 / "size_x_1" → int 실패)
+        try:
+            n = int(case_id.split("_")[1])      # "size_13_2" → ["size", "13", "2"] → 13
+        except (IndexError, ValueError):
+            print(f"[{case_id}] FAIL - 키 형식 오류")
+            failures.append(f"{case_id}: 키 형식 오류(size_N_idx 형식이 아님)")
+            continue
+
+        # 예외 ⑥: 그 크기의 필터가 없음 (예: size_7_1인데 size_7 필터가 없음)
+        filter_key = f"size_{n}"
+        if filter_key not in data["filters"]:
+            print(f"[{case_id}] FAIL - {n}x{n} 필터 없음")
+            failures.append(f"{case_id}: {n}x{n} 필터 없음")
+            continue
+
+        # 필터 키 이름 통일: {"cross": 행렬, "x": 행렬} → {"Cross": 행렬, "X": 행렬}
+        filters = {}
+        for label, matrix in data["filters"][filter_key].items():
+            filters[normalize_label(label)] = matrix
+
+        # 예외 ⑦: 크기 불일치 (패턴이나 필터가 n x n이 아님, 빠져 있어도 여기서 걸림)
+        pattern = case.get("input")
+        if not is_square_matrix(pattern, n):
+            print(f"[{case_id}] FAIL - 크기 불일치(패턴이 {n}x{n}이 아님)")
+            failures.append(f"{case_id}: 크기 불일치(패턴이 {n}x{n}이 아님)")
+            continue
+        if not (is_square_matrix(filters.get("Cross"), n) and is_square_matrix(filters.get("X"), n)):
+            print(f"[{case_id}] FAIL - {n}x{n} 필터가 없거나 크기 불일치")
+            failures.append(f"{case_id}: {n}x{n} 필터가 없거나 크기 불일치")
+            continue
+
+        # 예외 ⑧: 규칙에 없는 정답 라벨 (예: "o")
+        expected = normalize_label(case.get("expected"))
+        if expected is None:
+            print(f"[{case_id}] FAIL - 알 수 없는 정답 라벨: {case.get('expected')}")
+            failures.append(f"{case_id}: 알 수 없는 정답 라벨({case.get('expected')})")
+            continue
+
+        # 예외 ⑨: 행렬 안에 숫자가 아닌 값 (예: "a" * 1.0 → TypeError)
+        try:
+            score_cross = mac(pattern, filters["Cross"])
+            score_x = mac(pattern, filters["X"])
+        except TypeError:
+            print(f"[{case_id}] FAIL - 행렬에 숫자가 아닌 값이 있음")
+            failures.append(f"{case_id}: 행렬에 숫자가 아닌 값이 있음")
+            continue
+
+        result = judge(score_cross, score_x)    # A = Cross 쪽, B = X 쪽
 
         # 판정 이름 통일: A/B → Cross/X
         if result == "A":
@@ -145,16 +199,25 @@ def run_mode2():
         else:
             decision = "UNDECIDED"
 
-        # 정답 이름 통일: +/x → Cross/X
-        expected = normalize_label(case["expected"])
-
         if decision == expected:
             status = "PASS"
+            passed += 1
         else:
             status = "FAIL"
+            if decision == "UNDECIDED":
+                reason = "두 점수가 epsilon 이내로 같아 판정 불가(UNDECIDED)"
+            else:
+                reason = f"판정 {decision}, 정답 {expected}"
+            failures.append(f"{case_id}: {reason}")
 
         print(f"[{case_id}] Cross: {score_cross} | X: {score_x} "
               f"| 판정: {decision} | expected: {expected} | {status}")
+
+    # 결과 요약
+    print("\n=== 결과 요약 ===")
+    print(f"전체 {len(data['patterns'])}개 / 통과 {passed}개 / 실패 {len(failures)}개")
+    for failure in failures:
+        print(f"  - {failure}")
 
 
 # 이 파일을 직접 실행했을 때의 시작점
