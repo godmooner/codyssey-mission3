@@ -5,6 +5,7 @@ import math
 
 EPSILON = 1e-9  # 두 점수의 차이가 이보다 작으면 "같다"로 본다
 DATA_PATH = "data.json"
+LABEL_MAP = {"+": "Cross", "cross": "Cross", "x": "X"}  # 라벨 통일 규칙
 
 
 def read_matrix(name, n):
@@ -115,6 +116,11 @@ def load_data(path):
         return None
 
 
+def normalize_label(label):
+    """'+', 'cross' → 'Cross' / 'x' → 'X'. 규칙에 없는 라벨이면 None."""
+    return LABEL_MAP.get(label.strip().lower())
+
+
 def run_mode2():
     """모드 2: data.json 분석"""
     print("\n=== 모드 2: data.json 분석 ===")
@@ -131,8 +137,24 @@ def run_mode2():
         score_x = mac(pattern, filters["x"])
         result = judge(score_cross, score_x)    # A = cross 쪽, B = x 쪽
 
+        # 판정 이름 통일: A/B → Cross/X
+        if result == "A":
+            decision = "Cross"
+        elif result == "B":
+            decision = "X"
+        else:
+            decision = "UNDECIDED"
+
+        # 정답 이름 통일: +/x → Cross/X
+        expected = normalize_label(case["expected"])
+
+        if decision == expected:
+            status = "PASS"
+        else:
+            status = "FAIL"
+
         print(f"[{case_id}] Cross: {score_cross} | X: {score_x} "
-              f"| 판정: {result} | expected: {case['expected']}")
+              f"| 판정: {decision} | expected: {expected} | {status}")
 
 
 # 이 파일을 직접 실행했을 때의 시작점
