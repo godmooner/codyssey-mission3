@@ -122,10 +122,17 @@ def run_mode2():
     if data is None:
         return
 
-    # C-1 확인용: 읽어 온 dict의 이름표(key)들 보기
-    print("최상위 key:", list(data.keys()))
-    print("filters key:", list(data["filters"].keys()))
-    print("patterns key:", list(data["patterns"].keys()))
+    for case_id, case in data["patterns"].items():
+        n = int(case_id.split("_")[1])          # "size_13_2" → ["size", "13", "2"] → 13
+        filters = data["filters"][f"size_{n}"]  # {"cross": 행렬, "x": 행렬}
+        pattern = case["input"]
+
+        score_cross = mac(pattern, filters["cross"])
+        score_x = mac(pattern, filters["x"])
+        result = judge(score_cross, score_x)    # A = cross 쪽, B = x 쪽
+
+        print(f"[{case_id}] Cross: {score_cross} | X: {score_x} "
+              f"| 판정: {result} | expected: {case['expected']}")
 
 
 # 이 파일을 직접 실행했을 때의 시작점
