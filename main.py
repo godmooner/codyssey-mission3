@@ -1,8 +1,10 @@
 # Mini NPU 시뮬레이터 (Codyssey 미션 E1-3)
 
+import json
 import math
 
 EPSILON = 1e-9  # 두 점수의 차이가 이보다 작으면 "같다"로 본다
+DATA_PATH = "data.json"
 
 
 def read_matrix(name, n):
@@ -100,9 +102,30 @@ def run_mode1():
     print(f"판정: {judge(score_a, score_b)}")
 
 
+def load_data(path):
+    """JSON 파일을 읽어 dict로 돌려준다. 실패하면 안내 후 None."""
+    try:
+        with open(path, encoding="utf-8") as file:
+            return json.load(file)
+    except FileNotFoundError:
+        print(f"{path} 파일을 찾을 수 없습니다. mission03 폴더에서 실행하세요.")
+        return None
+    except json.JSONDecodeError:
+        print(f"{path}의 JSON 형식이 올바르지 않습니다.")
+        return None
+
+
 def run_mode2():
-    """모드 2: data.json 분석 (블록 C에서 구현)"""
-    print("\n[모드 2] 아직 준비 중입니다.")
+    """모드 2: data.json 분석"""
+    print("\n=== 모드 2: data.json 분석 ===")
+    data = load_data(DATA_PATH)
+    if data is None:
+        return
+
+    # C-1 확인용: 읽어 온 dict의 이름표(key)들 보기
+    print("최상위 key:", list(data.keys()))
+    print("filters key:", list(data["filters"].keys()))
+    print("patterns key:", list(data["patterns"].keys()))
 
 
 # 이 파일을 직접 실행했을 때의 시작점
