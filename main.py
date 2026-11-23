@@ -81,6 +81,13 @@ def judge(score_a, score_b):
         return "B"
 
 
+def print_section(title):
+    """단계 제목을 구분선과 함께 출력한다."""
+    print("\n" + "-" * 40)
+    print(title)
+    print("-" * 40)
+
+
 def make_test_matrix(n):
     """성능 측정용 n x n 행렬 (값은 계산 시간에 영향이 없으니 전부 1.0)."""
     return [[1.0] * n for _ in range(n)]
@@ -97,7 +104,6 @@ def measure_mac_time(pattern, filter_matrix):
 
 def print_performance_table(sizes):
     """크기별 MAC 평균 시간과 연산 횟수(N²)를 표로 출력한다."""
-    print(f"\n=== 성능 측정 (MAC {REPEAT}회 평균) ===")
     print("크기    | 평균 시간(ms) | 연산 횟수(N²)")
     for n in sizes:
         matrix = make_test_matrix(n)
@@ -108,6 +114,7 @@ def print_performance_table(sizes):
 def run_mode1():
     """모드 1: 필터 A·B 입력 → 저장 확인 → 패턴 입력"""
     n = 3
+    print_section("[1] 필터 입력")
     filter_a = read_matrix("필터 A", n)
     filter_b = read_matrix("필터 B", n)
 
@@ -117,17 +124,24 @@ def run_mode1():
     print("필터 B:")
     print_matrix(filter_b)
 
+    print_section("[2] 패턴 입력")
     pattern = read_matrix("패턴", n)
     print("\n패턴 저장 완료")
     print_matrix(pattern)
 
     # MAC 점수 계산
+    print_section("[3] MAC 결과")
     score_a = mac(pattern, filter_a)
     score_b = mac(pattern, filter_b)
-    print(f"\n필터 A 점수: {score_a}")
-    print(f"필터 B 점수: {score_b}")
-    print(f"판정: {judge(score_a, score_b)}")
+    print(f"A 점수: {score_a}")
+    print(f"B 점수: {score_b}")
+    result = judge(score_a, score_b)
+    if result == "UNDECIDED":
+        print(f"판정: 판정 불가 (|A-B| < {EPSILON})")
+    else:
+        print(f"판정: {result}")
 
+    print_section(f"[4] 성능 분석 (MAC {REPEAT}회 평균)")
     print_performance_table([n])  # 3x3 성능
 
 
@@ -166,10 +180,37 @@ def run_mode2():
     if data is None:
         return
 
+    # 예외 ⑩: 파일 전체 구조(스키마) 오류 — 최상위가 dict가 아니거나 patterns가 없음
+    if not isinstance(data, dict) or not isinstance(data.get("patterns"), dict):
+        print("data.json 구조 오류: 최상위에 patterns 항목(dict)이 필요합니다.")
+        return
+    patterns = data["patterns"]
+    all_filters = data.get("filters")
+    if not isinstance(all_filters, dict):
+        print("주의: filters 항목이 없거나 형식이 잘못되어 모든 케이스가 FAIL 처리됩니다.")
+        all_filters = {}
+
+    # [1] 필터 로드: 크기별로 Cross·X가 제대로 있는지 미리 보여 주기
+    print_section("[1] 필터 로드")
+    for filter_key, pair in all_filters.items():
+        if isinstance(pair, dict):
+            labels = [str(normalize_label(label)) for label in pair]
+            print(f"  {filter_key} 필터 로드 ({', '.join(labels)})")
+        else:
+            print(f"  {filter_key} 필터 형식 오류 (dict가 아님)")
+
+    # [2] 패턴 분석
+    print_section("[2] 패턴 분석 (라벨 정규화 적용)")
     passed = 0
     failures = []  # 실패한 케이스의 "이름: 사유" 문자열 모음
 
-    for case_id, case in data["patterns"].items():
+    for case_id, case in patterns.items():
+        # 예외 ⑪: 케이스 하나가 dict가 아님 (예: "size_5_3": [1, 2])
+        if not isinstance(case, dict):
+            print(f"[{case_id}] FAIL - 케이스 형식 오류")
+            failures.append(f"{case_id}: 케이스 형식 오류(input/expected를 가진 dict가 아님)")
+            continue
+
         # 예외 ⑤: 키 형식 오류 (예: "abc" → [1] 칸 없음 / "size_x_1" → int 실패)
         try:
             n = int(case_id.split("_")[1])      # "size_13_2" → ["size", "13", "2"] → 13
@@ -180,14 +221,14 @@ def run_mode2():
 
         # 예외 ⑥: 그 크기의 필터가 없음 (예: size_7_1인데 size_7 필터가 없음)
         filter_key = f"size_{n}"
-        if filter_key not in data["filters"]:
+        if not isinstance(all_filters.get(filter_key), dict):
             print(f"[{case_id}] FAIL - {n}x{n} 필터 없음")
             failures.append(f"{case_id}: {n}x{n} 필터 없음")
             continue
 
         # 필터 키 이름 통일: {"cross": 행렬, "x": 행렬} → {"Cross": 행렬, "X": 행렬}
         filters = {}
-        for label, matrix in data["filters"][filter_key].items():
+        for label, matrix in all_filters[filter_key].items():
             filters[normalize_label(label)] = matrix
 
         # 예외 ⑦: 크기 불일치 (패턴이나 필터가 n x n이 아님, 빠져 있어도 여기서 걸림)
@@ -217,6 +258,12 @@ def run_mode2():
             failures.append(f"{case_id}: 행렬에 숫자가 아닌 값이 있음")
             continue
 
+        # 예외 ⑫: 데이터에 NaN·Infinity가 섞여 점수가 망가짐 (비교가 전부 False가 됨)
+        if not (math.isfinite(score_cross) and math.isfinite(score_x)):
+            print(f"[{case_id}] FAIL - 점수가 nan 또는 inf")
+            failures.append(f"{case_id}: 행렬에 nan/inf 값이 있어 점수 계산 불가")
+            continue
+
         result = judge(score_cross, score_x)    # A = Cross 쪽, B = X 쪽
 
         # 판정 이름 통일: A/B → Cross/X
@@ -241,11 +288,11 @@ def run_mode2():
         print(f"[{case_id}] Cross: {score_cross} | X: {score_x} "
               f"| 판정: {decision} | expected: {expected} | {status}")
 
+    print_section(f"[3] 성능 분석 (MAC {REPEAT}회 평균)")
     print_performance_table([3, 5, 13, 25])
 
-    # 결과 요약
-    print("\n=== 결과 요약 ===")
-    print(f"전체 {len(data['patterns'])}개 / 통과 {passed}개 / 실패 {len(failures)}개")
+    print_section("[4] 결과 요약")
+    print(f"전체 {len(patterns)}개 / 통과 {passed}개 / 실패 {len(failures)}개")
     for failure in failures:
         print(f"  - {failure}")
 
@@ -254,6 +301,7 @@ def run_mode2():
 if __name__ == "__main__":
     # 예외 ④: Ctrl+C(KeyboardInterrupt), 입력 끝(EOFError) → 안내 후 종료
     try:
+        print("=== Mini NPU Simulator ===")
         mode = read_mode()
         if mode == "1":
             run_mode1()
