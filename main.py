@@ -2,9 +2,11 @@
 
 import json
 import math
+import time
 
 EPSILON = 1e-9  # 두 점수의 차이가 이보다 작으면 "같다"로 본다
 DATA_PATH = "data.json"
+REPEAT = 10     # 성능 측정 반복 횟수
 LABEL_MAP = {"+": "Cross", "cross": "Cross", "x": "X"}  # 라벨 통일 규칙
 
 
@@ -79,6 +81,30 @@ def judge(score_a, score_b):
         return "B"
 
 
+def make_test_matrix(n):
+    """성능 측정용 n x n 행렬 (값은 계산 시간에 영향이 없으니 전부 1.0)."""
+    return [[1.0] * n for _ in range(n)]
+
+
+def measure_mac_time(pattern, filter_matrix):
+    """MAC을 REPEAT번 반복해 1회 평균 시간(ms)을 돌려준다. 입력·출력은 측정 구간 밖."""
+    start = time.perf_counter()
+    for _ in range(REPEAT):
+        mac(pattern, filter_matrix)
+    elapsed = time.perf_counter() - start  # 초 단위
+    return elapsed / REPEAT * 1000         # 1회 평균, ms 단위
+
+
+def print_performance_table(sizes):
+    """크기별 MAC 평균 시간과 연산 횟수(N²)를 표로 출력한다."""
+    print(f"\n=== 성능 측정 (MAC {REPEAT}회 평균) ===")
+    print("크기    | 평균 시간(ms) | 연산 횟수(N²)")
+    for n in sizes:
+        matrix = make_test_matrix(n)
+        avg_ms = measure_mac_time(matrix, matrix)
+        print(f"{n}x{n}".ljust(7) + f" | {avg_ms:13.4f} | {n * n:13}")
+
+
 def run_mode1():
     """모드 1: 필터 A·B 입력 → 저장 확인 → 패턴 입력"""
     n = 3
@@ -101,6 +127,8 @@ def run_mode1():
     print(f"\n필터 A 점수: {score_a}")
     print(f"필터 B 점수: {score_b}")
     print(f"판정: {judge(score_a, score_b)}")
+
+    print_performance_table([n])  # 3x3 성능
 
 
 def load_data(path):
@@ -212,6 +240,8 @@ def run_mode2():
 
         print(f"[{case_id}] Cross: {score_cross} | X: {score_x} "
               f"| 판정: {decision} | expected: {expected} | {status}")
+
+    print_performance_table([3, 5, 13, 25])
 
     # 결과 요약
     print("\n=== 결과 요약 ===")
